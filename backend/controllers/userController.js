@@ -1,6 +1,26 @@
 import asyncHandler from "express-async-handler";
 import generateToken from "../utils/generateToken.js";
 import User from "../models/userModel.js";
+import Session from "../models/sessionModel.js";
+import Razorpay from "razorpay";
+import sgMail from "@sendgrid/mail";
+import dotenv from "dotenv";
+import Notification from "../models/notificationModel.js";
+dotenv.config();
+
+// email config
+const API_KEY = process.env.MAIL_API_KEY;
+sgMail.setApiKey(API_KEY);
+
+
+// payment config
+app.use(
+  cors({
+      origin:["http://localhost:8090"],
+      methods: ["GET","POST"],
+      credentials: true,
+  })
+);
 
 // @desc    Auth user & get token
 // @route   POST /api/users/login
@@ -12,9 +32,10 @@ const authUser = asyncHandler(async (req, res) => {
   if (user && (await user.matchPassword(password))) {
     res.json({
       _id: user._id,
-      name: user.name,
+      firstname: user.firstname,
+      lastname: user.lastname,
       email: user.email,
-      isAdmin: user.isAdmin,
+      role: user.role,
       token: generateToken(user._id),
     });
   } else {
@@ -27,7 +48,7 @@ const authUser = asyncHandler(async (req, res) => {
 // @route   POST /api/users/
 // @access  Public
 const registerUser = asyncHandler(async (req, res) => {
-  const { name, email, password } = req.body;
+  const { firstname, lastname, email, password, role, dateOfBirth, categories, subCategories, linkedinProfile } = req.body;
 
   const userExists = await User.findOne({ email });
 
@@ -36,66 +57,34 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new Error("User already exists");
   }
   const user = await User.create({
-    name,
+    firstname,
+    lastname,
     email,
     password,
+    role,
+    dateOfBirth, 
+    categories, 
+    subCategories, 
+    linkedinProfile
   });
   if (user) {
     res.json({
       _id: user._id,
-      name: user.name,
+      firstname: user.firstname,
+      lastname: user.lastname,
       email: user.email,
-      isAdmin: user.isAdmin,
+      role: user.role,
       token: generateToken(user._id),
     });
   } else {
     res.status(404);
     throw new Error("User not found");
   }
+
+  console.log("registered")
 });
 
-// @desc    Get user profile
-// @route   Get /api/users/profile
-// @access  Private
-const getUserProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
-  if (user) {
-    res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      isAdmin: user.isAdmin,
-    });
-  } else {
-    res.status(404);
-    throw new Error("User not found");
-  }
-});
-// @desc    Update user profile
-// @route   PUT /api/users/profile
-// @access  Private
-const updateUserProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
-  if (user) {
-    user.name = req.body.name || user.name;
-    user.email = req.body.email || user.email;
-    if (req.body.password) {
-      user.password = req.body.password;
-    }
 
-    const updatedUser = await user.save();
-    res.json({
-      _id: updatedUser._id,
-      name: updatedUser.name,
-      email: updatedUser.email,
-      isAdmin: updatedUser.isAdmin,
-      token: generateToken(updatedUser._id),
-    });
-  } else {
-    res.status(404);
-    throw new Error("User not found");
-  }
-});
 
 // @desc    Get all users
 // @route   Get /api/users
@@ -145,9 +134,10 @@ const updateUser = asyncHandler(async (req, res) => {
     const updatedUser = await user.save();
     res.json({
       _id: updatedUser._id,
-      name: updatedUser.name,
+      firstname: updatedUser.firstname,
+      lastname: updatedUser.lastname,
       email: updatedUser.email,
-      isAdmin: updatedUser.isAdmin,
+      role: updatedUser.role,
     });
   } else {
     res.status(404);
@@ -155,13 +145,119 @@ const updateUser = asyncHandler(async (req, res) => {
   }
 });
 
+
+// @desc    get all advisor sessions
+// @route   GET /api/users/advisorSession
+// @access  Private/Advisor
+const advisorSessions = asyncHandler(async(req, res) => {
+  const session = Session.find({})
+  res.json(session);
+})
+
+
+// @desc    get experts
+// @route   GET /api/users/experts
+// @access  Public
+const getExpert = asyncHandler(async(req, res) => {
+  const {categories, subCategories} = req.body;
+  const users = await User.find({isApproved : true && isOnline == true && categories.includes(category) && subCategories.includes(subCategory)});
+  res.json(users);
+});
+
+
+// @desc    approve user
+// @route   PUT /api/users/:id/approveUser
+// @access  Private/Admin
+const approveUser = asyncHandler(async(req, res) => {
+  const user = await User.findById(req.params.id);
+  if( user.isApproved == "false"){
+    user.isApproved = True;
+  }else {
+    res.status(403);
+    throw new Error(" User not approved")
+  }
+})
+
+// @desc    verify user
+// @route   POST /api/users/verify
+// @access  Public
+const verify = asyncHandler(async(req, res) => {
+  const { email } = req.body;
+
+})
+
+// @desc    update advisor profile
+// @route   PUT /api/users/updateAdvisorProfile
+// @access  Private/Advisor
+const updateAdvisorProfile = asyncHandler(async(req, res) => {
+
+})
+
+// @desc    update user profile
+// @route   PUT /api/users/updateUserProfile
+// @access  Private/User
+const updateUserProfile = asyncHandler(async(req, res) => {
+
+})
+
+const resetPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  const userExists = await User.findOne({ email });
+
+  if (userExists) {
+    const message = {
+      to: email,
+      from: 'shahjatan88@gmail.com',
+      subject: 'test email',
+      text: 'Hello from jatan',
+    }
+    sgMail.send(message)
+    .then(() => {
+      res.send(message)
+    })
+    .catch(err => res.send(err));
+  }
+
+});
+
+const payTip = asyncHandler(async (req, res) => {
+  const tip = req.body.tip;
+
+  var instance = new Razorpay({ 
+    key_id: process.env.KEY_ID, 
+    key_secret: process.env.KEY_SECRET
+  });
+
+  var options = {
+    tip: tip * 100, 
+    currency: "INR",
+    receipt: "order_rcptid_11",
+  };
+
+  const myOrder = await instance.orders.create(options)
+
+  console.log(myOrder);
+
+});
+
+
+
+
+
 export {
   authUser,
-  getUserProfile,
   registerUser,
-  updateUserProfile,
   getUsers,
   deleteUser,
   getUserById,
   updateUser,
+  advisorSessions,
+  getExpert,
+  approveUser,
+  verify,
+  updateAdvisorProfile,
+  updateUserProfile,
+  resetPassword,
+  payTip
 };

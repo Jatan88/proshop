@@ -3,7 +3,11 @@ import bcrypt from "bcryptjs";
 
 const userSchema = mongoose.Schema(
   {
-    name: {
+    firstname: {
+      type: String,
+      required: true,
+    },
+    lastname: {
       type: String,
       required: true,
     },
@@ -12,15 +16,71 @@ const userSchema = mongoose.Schema(
       required: true,
       unique: true,
     },
+    phoneNumber: {
+      type: Number,
+      required: true,
+    },
+    zipcode: {
+      type: String,
+    },
     password: {
       type: String,
       required: true,
     },
-    isAdmin: {
-      type: Boolean,
-      required: true,
-      default: false,
+    otp:{
+      type: Number,
     },
+    dateOfBirth: {
+      type: Date,
+    },
+    role: {
+      type: String,
+      default: "User",
+      enum: ["User", "SME", "Superadmin"]
+    },
+    status: {
+      type: Boolean,
+    },
+    categories: [{
+      type: mongoose.Schema.Types.ObjectId,
+    }],
+    subCategories: [{
+      type: mongoose.Schema.Types.ObjectId,
+    }],
+    linkedinProfile: {
+      type: String,
+    },
+    ratings: {
+      type: Number,
+    },
+    bio: {
+      type: String,
+    },
+    isApproved: {
+      type: String,
+      default: "pending",
+      enum:['pending','rejected','approved']
+    },
+    isOnline: {
+      type: Boolean,
+    },
+    advisorReviews: {
+      type: Array,
+      default: [],
+    },
+    clientReviews: {
+      type: Array,
+      default: [],
+    },
+    sessionComments:{
+      type: String,
+    },
+    Msg:{
+      type: String,
+    },
+    additionalDocuments: [{
+      type: String,
+    }],
   },
   { timestamps: true }
 );
